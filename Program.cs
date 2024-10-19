@@ -12,20 +12,49 @@ class Program
 {
     static async Task Main(string[] args)
     {
-        var configuration = ConfigurationManager.OpenExeConfiguration(ConfigurationUserLevel.None);
-        var projectPath = configuration.AppSettings.Settings["ProjectPath"].Value;
+        var stringWriter = new StringWriter();
+        var originalConsoleOut = Console.Out;
+        Console.SetOut(stringWriter);
+        string? projectPath = null;
+        string? logPath = null;
 
-        if (!CheckDirectoryExists(projectPath))
-            return;
+        try
+        {
+            projectPath = ConfigurationManager.AppSettings["ProjectPath"] ?? string.Empty;
+            logPath = ConfigurationManager.AppSettings["LogOutputPath"] ?? string.Empty;
 
-        var programInstance = new Program();
-        await programInstance.ScanProject(projectPath);
+            if (!CheckDirectoryExists(projectPath))
+                return;
 
-        Console.WriteLine("\nPressione Enter para fechar o console...");
-        Console.ReadLine();
+            var programInstance = new Program();
+            await programInstance.ScanProject(projectPath);
+
+            Console.WriteLine("\nPressione Enter para fechar o console...");
+
+        }
+        finally
+        {
+
+            Console.SetOut(originalConsoleOut);
+            SaveLogToFile(logPath, stringWriter.ToString());
+
+        }
+
     }
 
-    private static bool CheckDirectoryExists(string path)
+    private static void SaveLogToFile(string projectPath, string logContent)
+    {
+        string projectName = Path.GetFileName(projectPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+        string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+        string logFileName = $"{projectName}_scanOut_{timestamp}.txt";
+
+        string logFilePath = Path.Combine(projectPath, logFileName);
+        File.WriteAllText(logFilePath, logContent);
+
+        Console.WriteLine($"Log saved to: {logFilePath}");
+
+    }
+    public static bool CheckDirectoryExists(string path)
     {
         if (!Directory.Exists(path))
         {
@@ -50,7 +79,7 @@ class Program
         await Task.CompletedTask;
     }
 
-    private void ListMethodsInFiles(string[] files)
+    public void ListMethodsInFiles(string[] files)
     {
         var csFiles = files.Where(f => f.EndsWith(".cs", StringComparison.OrdinalIgnoreCase)).ToArray();
         foreach (var file in csFiles)
@@ -60,7 +89,7 @@ class Program
         }
     }
 
-    private void ListCsMethods(string filePath)
+    public void ListCsMethods(string filePath)
     {
         var code = File.ReadAllText(filePath);
         var tree = CSharpSyntaxTree.ParseText(code);
@@ -96,7 +125,7 @@ class Program
         }
     }
 
-    private void DetectModelAttributes(ClassDeclarationSyntax classDeclaration)
+    public void DetectModelAttributes(ClassDeclarationSyntax classDeclaration)
     {
         var modelAttributes = new[] { "Required", "MaxLength", "ForeignKey" };
         var attributes = classDeclaration.AttributeLists.SelectMany(attrList => attrList.Attributes);
@@ -111,7 +140,7 @@ class Program
         }
     }
 
-    private void AnalyzeNamingConventions(string methodName)
+    public void AnalyzeNamingConventions(string methodName)
     {
         if (!char.IsUpper(methodName[0]))
         {
@@ -119,7 +148,7 @@ class Program
         }
     }
 
-    private void AnalyzeMethodLogic(MethodDeclarationSyntax method, string methodName)
+    public void AnalyzeMethodLogic(MethodDeclarationSyntax method, string methodName)
     {
         Console.WriteLine($"\nAnalyzing method: {methodName}");
 
@@ -198,7 +227,7 @@ class Program
         }
     }
 
-    private void AnalyzeInvocation(InvocationExpressionSyntax invocation, Dictionary<string, string> variables)
+    public void AnalyzeInvocation(InvocationExpressionSyntax invocation, Dictionary<string, string> variables)
     {
         var methodCalled = invocation.Expression.ToString();
 
@@ -224,7 +253,7 @@ class Program
         }
     }
 
-    private bool IsSqlQuery(string value)
+    public bool IsSqlQuery(string value)
     {
         if (string.IsNullOrEmpty(value)) return false;
 
@@ -232,7 +261,7 @@ class Program
         return sqlKeywords.Any(keyword => value.StartsWith(keyword, StringComparison.OrdinalIgnoreCase));
     }
 
-    private void AnalyzeSqlQuery(string query, Dictionary<string, string> variables)
+    public void AnalyzeSqlQuery(string query, Dictionary<string, string> variables)
     {
         Console.WriteLine($"   - SQL Query detected: {query}");
 
@@ -271,7 +300,7 @@ class Program
         }
     }
 
-    private string ExtractTableFromQuery(string query, string keyword)
+    public string ExtractTableFromQuery(string query, string keyword)
     {
         var keywordIndex = query.IndexOf(keyword, StringComparison.OrdinalIgnoreCase);
         if (keywordIndex == -1) return "Unknown";
@@ -281,9 +310,7 @@ class Program
         return parts.Length > 0 ? parts[0] : "Unknown";
     }
 
-    // Additional helper methods for loops, conditions, and others...
-
-    private void AnalyzeLoop(StatementSyntax loopStatement)
+    public void AnalyzeLoop(StatementSyntax loopStatement)
     {
         if (loopStatement is ForStatementSyntax forStatement)
         {
@@ -314,7 +341,7 @@ class Program
         }
     }
 
-    private void AnalyzeCondition(IfStatementSyntax ifStatement)
+    public void AnalyzeCondition(IfStatementSyntax ifStatement)
     {
         Console.WriteLine($"   - 'if' condition: {ifStatement.Condition}");
 
@@ -343,8 +370,7 @@ class Program
         }
     }
 
-
-    private void AnalyzeTryCatch(TryStatementSyntax tryStatement)
+    public void AnalyzeTryCatch(TryStatementSyntax tryStatement)
     {
         Console.WriteLine("   - Try block detected");
 
@@ -390,7 +416,7 @@ class Program
         }
     }
 
-    private void AnalyzeAssignment(AssignmentExpressionSyntax assignment, Dictionary<string, string> variables)
+    public void AnalyzeAssignment(AssignmentExpressionSyntax assignment, Dictionary<string, string> variables)
     {
         var left = assignment.Left.ToString();
         var right = assignment.Right.ToString();
@@ -413,8 +439,7 @@ class Program
         }
     }
 
-
-    private void AnalyzeBinaryExpression(BinaryExpressionSyntax binaryExpression, Dictionary<string, string> variables)
+    public void AnalyzeBinaryExpression(BinaryExpressionSyntax binaryExpression, Dictionary<string, string> variables)
     {
         var left = binaryExpression.Left.ToString();
         var right = binaryExpression.Right.ToString();
@@ -439,7 +464,7 @@ class Program
         }
     }
 
-    private void ListMethodDependencies(MethodDeclarationSyntax method)
+    public void ListMethodDependencies(MethodDeclarationSyntax method)
     {
         var invocationExpressions = method.DescendantNodes().OfType<InvocationExpressionSyntax>();
 
@@ -467,8 +492,7 @@ class Program
         }
     }
 
-
-    private void PrintDirectoryStructure(string path, int indentLevel)
+    public void PrintDirectoryStructure(string path, int indentLevel)
     {
         string indent = new string(' ', indentLevel * 2);
 
@@ -497,5 +521,4 @@ class Program
             Console.WriteLine($"{indent}|-- {Path.GetFileName(file)}");
         }
     }
-
 }
