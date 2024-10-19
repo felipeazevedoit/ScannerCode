@@ -7,6 +7,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using System.Collections.Generic;
+using System.IO.Compression;
 
 class Program
 {
@@ -45,15 +46,23 @@ class Program
     private static void SaveLogToFile(string projectPath, string logContent)
     {
         string projectName = Path.GetFileName(projectPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
-        string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-        string logFileName = $"{projectName}_scanOut_{timestamp}.txt";
+        string timestamp = DateTime.Now.ToString("HHmmss");
+        string logFileName = $"{projectName + timestamp}.txt";
 
         string logFilePath = Path.Combine(projectPath, logFileName);
         File.WriteAllText(logFilePath, logContent);
 
+        logFileName = $"{projectName + timestamp}-COMPRESS.txt";
+        logFilePath = Path.Combine(projectPath, logFileName);
+
+        using (var fileStream = new FileStream(logFilePath, FileMode.Create))
+        using (var compressionStream = new GZipStream(fileStream, CompressionMode.Compress))
+        using (var writer = new StreamWriter(compressionStream)) { writer.Write(logContent); };
+
         Console.WriteLine($"Log saved to: {logFilePath}");
 
     }
+
     public static bool CheckDirectoryExists(string path)
     {
         if (!Directory.Exists(path))
