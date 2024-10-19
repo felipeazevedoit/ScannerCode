@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "ScannerCode": {
+      "commandName": "Project"
+    },
+    "Container (Dockerfile)": {
+      "commandName": "Docker"
+    }
+  }
+}
